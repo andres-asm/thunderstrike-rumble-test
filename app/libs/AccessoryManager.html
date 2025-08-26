@@ -1,0 +1,544 @@
+<html>
+<head>
+<style>
+h1 {
+    background-color: #090;
+    border-bottom-style: solid;
+    border-bottom-width: 0.5em;
+    border-bottom-color: #0c0;
+}
+h2 {
+    background-color: #090;
+    border-bottom-style: solid;
+    border-bottom-width: 0.25em;
+    border-bottom-color: #0c0;
+}
+h3 {
+    background-color: #090;
+    border-bottom-style: solid;
+    border-bottom-width: 0.125em;
+    border-bottom-color: #0c0;
+}
+code {
+    color: #00a;
+}
+</style>
+<title>NVIDIA AccessoryManager</title>
+</head>
+<body>
+
+<h1>Introduction</h1>
+
+This developer level documentation for the NVIDIA <code>AccessoryManager</code> explains how to access to NVIDIA accessories (e.g. controllers and remotes) on NVIDIA Android devices.
+
+Link the provided Java .jar to your application to gain access to the <code>AccessoryManager</code>.
+
+<p>
+
+There are two classes <code>AccessoryManager</code> (overall access) and <code>Accessory</code> (access to an individual controller or remote).
+
+There are a few listener <code>interface</code>s used for callbacks from these two classes.
+
+There are a number of <code>enum</code>s in the <code>Accessory</code> class to encode values of many of the various properties of the accessories.
+<!-- #EnumsMatter -->
+
+<p>
+
+Throughout this document <code>code snippets appear like this</code>.
+
+<h1><code>class AccessoryManager</code></h1>
+
+<code>AccessoryManager</code> is the root of the access to NVIDIA accessories.
+Through the <code>AccessoryManager</code> object an application can access the NVIDIA controllers and remotes.
+
+<h2><code>AccessoryManager</code>: Construction/Destruction</h2>
+
+<dl>
+    <dt><code>static AccessoryManager getInstance(Context context)</code></dt>
+    <dd>Returns a reference to the <code>AccessoryManager</code>.
+    Use the <code>AccessoryManager</code> to get to the rest of the functionality.
+    You will probably want to call this from your <code>onCreate()</code></dd>
+
+    <dt><code>void connect()</code></dt>
+    <dd>
+    Ask <code>AccessoryManager</code> to connect to the NVIDIA accessories application (com.nvidia.blakepairing).
+    You will probably want to call this from your <code>onStart()</code>.
+    <p>
+    Most <code>AccessoryManager</code> and <code>Accessory</code> methods will return failure and there will be no callbacks unless the Binder connection is in force.
+    It is normal for the <code>AccessoryManager</code> to take a short time (e.g. less than a second) to bind to the NVIDIA accessories application.
+    If the NVIDIA accessories application is not started yet (or has crashed) the Binder connection will not be in force.
+    The Binder connection will come into force each time the NVIDIA accessories application starts, without further action from your application.
+    </dd>
+
+    <dt><code>void disconnect()</code></dt>
+    <dd>
+    Ask <code>AccessoryManager</code> to release its connection to the NVIDIA accessories application.
+    You will probably want to call this from your <code>onStop()</code>.
+    <p>
+    <code>AccessoryManager</code> will stop binding to the NVIDIA accessories application.
+    </dd>
+</dl>
+
+<h2><code>AccessoryManager</code>: Monitoring Accessories</h2>
+
+It is up to the application whether it wishes to track an individual <code>Accessory</code> using an <code>Accessory</code> object or a token String.
+
+The operations on an <code>Accessory</code> are available through <code>AccessoryManager</code> by passing the corresponding token String.
+
+For some applications it is more convenient to manage a collection of <code>Accessory</code> objects.
+For other applications it is more convenient to manage a collection of token Strings.
+Some applications may not need to manage a collection.
+Some applications may just need a snapshot of the available accessories.
+
+<p>
+
+A token String will not change when an <code>Accessory</code> reconnects or when Android reboots.
+The token for an <code>Accessory</code> might change when there is an Android upgrade.
+
+<p>
+
+When an <code>Accessory</code> reconnects to Android, Android will change its InputDeviceId.
+This can happen somewhat often, especially for Bluetooth devices.
+
+<dl>
+    <dt><code>interface Listener</code></dt>
+    <dd>
+    <dl>
+        <dt><code>void onDeviceAdded(Accessory accessory)</code></dt>
+        <dd>is called when an <code>Accessory</code> is added.
+        <code>onDeviceAdded</code> is called for each known <code>Accessory</code> when <code>boolean AccessoryManager.registerListener(Listener listener)</code> has been called (i.e. initial <code>Accessory</code> enumeration).
+        <code>onDeviceAdded</code> is also called when an <code>Accessory</code> is paired.
+        <code>accessory</code> is newly added <code>Accessory</code>.
+        </dd>
+    </dl>
+    </dd>
+
+    <dt><code>interface ListenerV2 extends Listener</code></dt>
+    <dd>
+    <dl>
+        <dt><code>void onBatchComplete()</code></dt>
+        <dd>is called when initial <code>Accessory</code> enumeration is complete.
+        This can be useful in some cases, if you need to know when already existing Accessoryies have been enumerated and differentiate them from accessories that connect later.</dd>
+    </dl>
+    </dd>
+
+    <dt><code>boolean registerListener(Listener listener)</code></dt>
+    <dd>registers a Listener to call you back when an <code>Accessory</code> connects.
+    Already connected accessories will be enumerated at this time via <code>onDeviceAdded</code>.
+    You will probably want to call this from your <code>onResume()</code>.
+    This will make it easy to re-enumerate the existing accessories.</dd>
+
+    <dt><code>boolean removeListener(Listener listener)</code></dt>
+    <dd>Stop listening for new <code>Accessory</code> connections.
+    You will probably want to call this from your <code>onPause()</code>.</dd>
+</dl>
+
+<h2><code>AccessoryManager</code>: Just Give Me a List of Accessories</h2>
+
+Some applications may just want a snapshot of the current accessories, without creating a <code>AccessoryManager.Listener</code>.
+If an application mixes this with using an <code>AccessoryManager.Listener</code>, race conditions will prevail.
+
+<dl>
+    <dt><code>Accessory[] getAccessories()</code></dt>
+    <dd>Returns an array of the existing accessories.
+    Not needed (and possibly confusing), if you use a Listener (or ListenerV2), but can be convenient otherwise.</dd>
+</dl>
+
+<h2><code>AccessoryManager</code>: Starting NVIDIA Activities</h2>
+
+These methods start NVIDIA Activities.
+
+<dl>
+    <dt><code>boolean startPairingActivity()</code></dt>
+    <dd>Kicks off the NVIDIA <code>Accessory</code> Pairing Activity.
+    The return value indicates whether the pairing activity was successfully kicked off.
+    The return value does not indicate whether anything paired.
+    </dd>
+
+    <dt><code>boolean startQuickGuideActivity()</code></dt>
+    <dd>Kicks off the NVIDIA <code>Accessory</code> Quick Guide Activity.
+    The return value indicates whether the Quick Guide Activity was successfully kicked off.
+    </dd>
+
+    <dt><code>boolean startFirmwareUpgrade(String token)</code></dt>
+    <dd>Kicks off the NVIDIA Firmware Upgrade Activity for the <code>Accessory</code> corresponding to token.
+    The return value indicates whether the Firmware Upgrade Activity was successfully kicked off.
+    The return value does not indicate whether the firmware upgrade was successful.
+    You have to monitor the firmware version and connection status of the <code>Accessory</code> corresponding to the token to determine whether the firmware upgrade was successful.</dd>
+    </dd>
+
+    <dt><code>boolean startFirmwareUpgrade()</code></dt>
+    <dd>Kicks off the NVIDIA Firmware Upgrade Acivity for all currently connected accessories.
+    The return value indicates whether the Firmware Upgrade Activity was successfully kicked off.
+    The return value does not indicate whether any firmware upgrade operation was successful.
+    You have to monitor the firmware version and connection status of <code>Accessory</code>s to determine whether any firmware upgrade was successful.</dd>
+    </dd>
+</dl>
+
+<h2><code>AccessoryManager</code>: Getting and Setting <code>Accessory</code> Properties</h2>
+
+These methods get or set properties of the <code>Accessory</code> specified by the token String.
+Some applications will find it more convenient to use the methods in the <code>Accessory</code> class.
+
+<dl>
+    <dt><code>Accessory.Type getType(String token)</code></dt>
+    <dd>Returns the <code>Accessory.Type</code> corresponding to token.</dd>
+
+    <dt><code>Accessory.Category getCategory(String token)</code></dt>
+    <dd>Returns the <code>Accessory.Category</code> corresponding to token.</dd>
+
+    <dt><code>String getNickname(String token)</code></dt>
+    <dd>Returns the nickname corresponding to token.
+    The customer will see the nicknames in lists of accessories in the NVIDIA Activities.
+    If the customer has not assigned a nickname to an accessory, a made up name is displayed (currently the made up name changes when a controller or remote disconnects), but this method will return null.
+    Unfortunately, the made up names change when an <code>Accessory</code> disconnects.</dd>
+
+    <dt><code>boolean setNickname(String token, String nickname)</code></dt>
+    <dd>Sets the nickname corresponding to token.
+    The return value indicates whether it was successful.
+    Normally this will only be called by the NVIDIA settings screens. (The NVIDIA settings screens use this same .jar.)</dd>
+
+    <dt><code>int getIndex(String token)</code></dt>
+    <dd>Returns the index of the <code>Accessory</code> corresponding to token.
+    The index is a number between 1 and the number of accessories of that <code>Accessory.Category</code>.
+    The index may change when an <code>Accessory</code> disconnects.
+    (The index is currently used by NVIDIA code to create the made up names for accessories that do not have a nickname.)</dd>
+
+    <dt><code>String getFirmwareVersionStr(String token)</code></dt>
+    <dd>Returns the firmware version correspondmng to token.
+    The format varies from <code>Accessory.Type</code> to <code>Accessory.Type</code>.</dd>
+
+    <dt><code>String getAvailableFirmwareVersionStr(String token)</code></dt>
+    <dd>Returns the available firmware version corresponding to token.
+    It is intended to closely match the format from <code>getFirmwareVersionStr(String token)</code></dd>
+
+    <dt><code>Accessory.BatteryLevel getBatteryLevel(String token)</code></dt>
+    <dd>Returns the <code>Accessory.BatteryLevel</code> corresponding to token.</dd>
+
+    <dt><code>Accessory.ChargingState getChargingState(String token)</code></dt>
+    <dd>Returns the <code>Accessory.ChargingState</code> corresponding to token.</dd>
+
+    <dt><code>Accessory.ConnectionState getConnectionState(String token)</code></dt>
+    <dd>Returns the <code>Accessory.ConnectionState</code> corresponding to token.</dd>
+
+    <dt><code>Accessory.ConnectionType getConnectionType(String token)</code></dt>
+    <dd>Returns the <code>Accessory.ConnectionType</code> corresponding to token.</dd>
+
+    <dt><code>Accessory.FirmwareUpgradeStatus getFirmwareUpgradeStatus(String token)</code></dt>
+    <dd>Returns the <code>Accessory.FirmwareUpgradeStatus</code> corresponding to token.</dd>
+
+    <dt><code>int getInputDeviceId(String token)</code></dt>
+    <dd>Returns the current Android InputDevice ID corresponding to token.
+    The InputDevice ID will change the <code>Accessory</code> reconnects.</dd>
+
+    <dt><code>boolean identify(String token)</code></dt>
+    <dd>Prods the <code>Accessory</code> corresponding to token to identify itself.
+    The behavior varies depending on <code>Accessory.Type</code>.
+    The behavior can change between NVIDIA and firmware releases.
+    Some accessories will vibrate, others will blink an LED (some do nothing).
+    Returns whether it was successful.
+    Note that if it is supposed to do nothing, it could still be successful.</dd>
+
+    <dt><code>boolean unpair(String token)</code></dt>
+    <dd>Unpair the <code>Accessory</code> corresponding to token.
+    Returns whether it was successful.
+    If successful, the <code>Accessory</code> will not be able to connect until it is paired again.</dd>
+
+    <dt><code>int getFeature(String token, String feature)</code></dt>
+    <dd>Returns the value of the specified feature of the <code>Accessory</code> corresponding to token.
+    Currently implemented features include "nickname" (whether the <code>Accessory</code> supports having a nickname)
+    and "vibrate" (whether the <code>Accessory</code> can vibrate).
+    A return value of -1 indicates failure or the feature is not supported by that <code>Accessory</code>.
+    For a boolean feature, a value of 1 indicates True and 0 indicates False.
+    The return value can depend on a number of factors including the <code>Accessory.Type</code>, the firmware version, and system properties.
+    </dd>
+
+    <dt><code>boolean setFeature(String token, String feature, int setting)</code></dt>
+    <dd>Change the value of the <code>feature</code> of the <code>Accessory</code> corresponding to token to <code>setting</code>.
+    The return value indicates whether it was successful.
+    Most features cannot change through this method.
+    </dd>
+
+    <dt><code>public boolean vibrate(String token, int leftAmount, int rightAmount)</code></dt>
+    <td><code>public boolean vibrate(String token, int leftAmount, int rightAmount, long milliseconds)</code></dt>
+    <dd>
+    Set the (haptic) vibration amounts of the left and right vibrators.
+    The vibration will timeout after milliseconds, if no future vibrate command overrides it.
+    The milliseconds value if specified will be clamped at about a second and a half.
+    If the milliseconds value is not specified it defaults to about a second.
+    To keep the vibration going for a longer time period, continuously send vibrations commands every half second or so.
+    This acts as a "dead man switch", so the vibration does not continue forever when an application crashes.
+    Valid values for leftAmount and rightAmount are the range from 0 (no vibration) to 65535 (maximum vibration).
+    Setting leftAmount and rightAmount both to zero explicitly turns off the vibration.
+    </dd>
+
+</dl>
+
+<h1><code>class Accessory</code></h1>
+
+An <code>Accessory</code> provides access to an associated NVIDIA accessory.
+<code>Accessory</code> properties can be queried and modified.
+An <code>Accessory</code> can be monitored for changes to its properties.
+
+<p>
+
+An <code>Accessory</code> is obtained from the <code>AccessoryManager.Listener.onDeviceAdded(Accessory accessory)</code> callback and
+from the <code>Accessory[] AccessoryManager.getAccessories()</code> method.
+
+<h2><code>Accessory</code>: <code>Accessory</code>: Monitoring</h2>
+
+<dl>
+    <dt><code>interface Listener</code></dt>
+    <dd>
+        <dl>
+            <dt><code>public void onDeviceChanged(ChangeType changeType)</code></dt>
+            <dd>
+            Called when a property of the <code>Accessory</code> changes.
+            Call the <code>get*</code> method corresponding to changeType to get the new value.
+            </dd>
+            <dt><code>public void onDeviceRemoved()</code></dt>
+            <dd>
+            Called when the <code>Accessory</code> is unpaired.
+            </dd>
+        </dl>
+    </dd>
+    <dt><code>boolean registerListener(Listener listener)</code></dt>
+    <dd>
+    Register a Listener to begin getting <code>Accessory.Listener</code> callbacks.
+    You will probably want to call this from your <code>AccessoryManager.Listener.onDeviceAdded()</code>.
+    </dd>
+    <dt><code>boolean removeListener(Listener listener)</code></dt>
+    <dd>
+    Unregister an <code>Accessory.Listener</code> to stop receiving callbacks.
+    You will probably want to call this from your <code>Accessory.Listener.onDeviceRemoved()</code>.
+    </dd>
+</dl>
+
+As always, since multiple processes are involved, temporarily unregistering may cause some callbacks to be lost, and possibly not the ones you expect.
+
+<h2><code>Accessory</code>: Properties and their Values</h2>
+
+<h3><code>Accessory</code>: <code>enum Type</code></h3>
+
+An <code>Accessory</code> will be a particular <code>Type</code>.
+The <code>Type</code> is the "model" of the <code>Accessory</code>.
+
+<dl>
+    <dt><code>UNKNOWN</code></dt><dd>We don't currently know the <code>Type</code> of the corresponding <code>Accessory</code></dd>
+    <dt><code>BLAKE</code></dt><dd>The corresponding <code>Accessory</code> is a Blake. An earlier NVIDIA controller.</dd>
+    <dt><code>JARVIS</code></dt><dd>The corresponging <code>Accessory</code> is a Jarvis. An earlier NVIDIA remote.</dd>
+    <dt><code>THUNDERSTRIKE</code></dt><dd>The corresponging <code>Accessory</code> is a Thunderstrike. A newer NVIDIA controller.</dd>
+    <dt><code>PEPPER</code></dt><dd>The corresponging <code>Accessory</code> is a Pepper. A newer NVIDIA remote.</dd>
+    <dt><code>FRIDAY</code></dt><dd>The corresponging <code>Accessory</code> is a Friday. An even newer NVIDIA remote.</dd>
+</dl>
+
+<h3><code>Accessory</code>: <code>enum Category</code></h3>
+
+An <code>Accessory</code> can currently be a controller or a remote.
+If an <code>Accessory</code> looks and works like a game controller (joysticks, dpad buttons, triggers, bumpers, ...) it is deemed an <code>Accessory.Category.CONTROLLER</code>.
+If an <code>Accessory</code> looks and works like a remove (dpad buttons, but no joysticks, triggers, bumpers, ...) it is deemded an <code>Accessory.Category.REMOTE</code>.
+
+<dl>
+    <dt><code>UNKNOWN</code></dt><dd>We don't currently know the <code>Category</code> of the corresponding <code>Accessory</code></dd>
+    <dt><code>CONTROLLER</code></dt><dd>The corresponding <code>Accessory</code> is deemed a controller.</dd>
+    <dt><code>REMOTE</code></dt><dd>The corresponding <code>Accessory</code> is deemed a remote.</dd>
+</dl>
+
+<h3><code>Accessory</code>: <code>enum BatteryLevel</code></h3>
+
+These are the battery levels that can be returned by <code>getBatteryLevel()</code>.
+These give an indication of the minimum percentage of energy in the battery.
+The values are approximate.
+
+<dl>
+    <dt><code>UNKNOWN</code></dt>
+    <dd>We don't currently know the battery level of the corresponding <code>Accessory</code>.</dd>
+
+    <dt><code>EMPTY</code></dt>
+    <dd>The battery of the corresponding <code>Accessory</code> is empty.
+    The <code>Accessory</code> is probably in the process of disconnecting.</dd>
+
+    <dt><code>LOW</code></dt>
+    <dd>The battery level of the corresponding <code>Accessory</code> is very low.
+    The <code>Accessory</code> will probably disconnect soon, because of the battery level.</dd>
+
+    <dt><code>GOOD_40</code></dt>
+    <dd>The battery level of the corresponding <code>Accessory</code> is in the neighborhood of 40%.</dd>
+
+    <dt><code>GOOD_60</code></dt>
+    <dd>The battery level of the corresponding <code>Accessory</code> is in the neighborhood of 60%.</dd>
+
+    <dt><code>GOOD_80</code></dt>
+    <dd>The battery level of the corresponding <code>Accessory</code> is in the neighborhood of 80%.</dd>
+
+    <dt><code>FULL</code></dt>
+    <dd>The battery level of the corresponding <code>Accessory</code> is in the neighborhood of 100%.</dd>
+</dl>
+
+<h3><code>Accessory</code>: <code>enum ChargingState</code></h3>
+
+These are the charging states that can be returned by <code>getChargingState()</code>.
+These give an indication of whether the <code>Accessory</code> is charging or not.
+
+<dl>
+    <dt><code>UNKNOWN</code></dt><dd>We don't currently know the charging state of the corresponding <code>Accessory</code>.</dd>
+    <dt><code>NOT_CHARGING</code></dt><dd>The corresponding <code>Accessory</code> is not charging.</dd>
+    <dt><code>CHARGING</code></dt><dd>The corresponding <code>Accessory</code> is charging.</dd>
+</dl>
+
+<h3><code>Accessory</code>: <code>enum ConnectionState</code></h3>
+
+These are the connection states that can be returned by <code>getConnectionState()</code>.
+These give an indication of whether the <code>Accessory</code> is connected or not.
+
+<dl>
+    <dt><code>UNKNOWN</code></dt><dd>We don't currently know the connection state of the corresponding <code>Accessory</code>.</dd>
+    <dt><code>DISCONNECTED</code></dt><dd>The corresponding <code>Accessory</code> is currently disconnected.
+    Communication with the <code>Accessory</code> will not occur.</dd>
+    <dt><code>CONNECTED</code></dt><dd>The corredsponding <code>Accessory</code> is currently connected.
+    Communication with the <code>Accessory</code> is possible.</dd>
+</dl>
+
+<h3><code>Accessory</code>: <code>enum ConnectionType</code></h3>
+
+These are the connection types that can be returned by <code>getConnectionType()</code>.
+These give an indication of the how <code>Accessory</code> is connected.
+
+<dl>
+    <dt><code>UNKNOWN</code></dt><dd>We don't currently know the connection type.</dd>
+    <dt><code>WIRED</code></dt><dd>The <code>Accessory</code> is connected by a wire (e.g. USB).</dd>
+    <dt><code>WIRELESS</code></dt><dd>The <code>Accessory</code> is connected wirelessly (e.g. Bluetooth or Wi-Fi).</dd>
+    <dt><code>BOTH</code></dt><dd>The accessory is connected both WIRED and WIRELESS.</dd>
+</dl>
+
+<h3><code>Accessory</code>: <code>enum ChangeType</code></h3>
+
+These are the values passed to the <code>onChange()</code> callback.
+Each value corresponds to a <code>get*</code> method for retrieving the new value.
+
+<dl>
+    <dt><code>UNKNOWN</code></dt><dd>We don't know what changed. (This should not happen.)</dd>
+    <dt><code>FIRMWARE</code></dt><dd>call getFirmwareVersion for details.</dd>
+    <dt><code>BATTERY_LEVEL</code></dt><dd>call getBatteryLevel for details.</dd>
+    <dt><code>CHARGE_STATE</code></dt><dd>call getChargingState for details.</dd>
+    <dt><code>CONNECTION_STATE</code></dt><dd>call getConnectionState for details.</dd>
+    <dt><code>CONNECTION_TYPE</code></dt><dd>call getConnectionType for details.</dd>
+    <dt><code>FIRMWARE_UPDATE_STATE</code></dt><dd>call getFirmwareUpgradeStatus for details.</dd>
+    <dt><code>INPUT_DEVICE_ID</code></dt><dd>call getInputDeviceId for details.</dd>
+    <dt><code>NICKNAME</code></dt><dd>call getNickname for details.</dd>
+    <dt><code>INDEX</code></dt><dd>call getIndex for details.</dd>
+    <dt><code>FEATURE</code></dt><dd>call getFeature for features your application is interested in for details.</dd>
+</dl>
+
+<h3><code>Accessory</code>: <code>enum FirmwareUpgradeStatus</code></h3>
+
+These are the values returned by getFirmwwareUpgradeStatus.
+These give an indication of whether an update is available, and whether the <code>Accessory</code> is ready to be updated.
+
+<dl>
+    <dt><code>UNKNOWN</code></dt><dd>We don't currently know the FirmwareUpgradeStatus.</dd>
+    <dt><code>UP_TO_DATE</code></dt><dd>The <code>Accessory</code> is already as up-to-date as we can make it.</dd>
+    <dt><code>AVAILABLE</code></dt><dd>The <code>Accessory</code> could be updated.</dd>
+    <dt><code>BATTERY_LOW</code></dt><dd>The <code>Accessory</code> battery level it too low to be updated.</dd>
+    <dt><code>DISCONNECTED</code></dt><dd>The <code>Accessory</code> is currently disconnected and therefore cannot be updated.</dd>
+    <dt><code>UNSUPPORTED</code></dt><dd>Firmware updates are not supported for this <code>Accessory</code>.</dd>
+</dl>
+
+<h2><code>Accessory</code>: Getting and Setting Properties</h2>
+
+<dl>
+    <dt><code>String getToken()</code></dt>
+    <dd>
+    Return the token string of the corresponding <code>Accessory</code>.
+    The token String identifies the <code>Accessory</code>.
+    The token String does not change when the <code>Accessory</code> reconnects.
+    (The Android InputDevice ID will change when the <code>Accessory</code> reconnects.)
+    The token String will not change on an Android reboot.
+    The token String may change on an Android upgrade.
+    </dd>
+
+    <dt><code>Type getType()</code></dt>
+    <dd>Return the <code>Type</code> of the corresponding <code>Accessory</code>.</dd>
+
+    <dt><code>Category getCategory()</code></dt>
+    <dd>Return the <code>Category</code> of the corresponding <code>Accessory</code>.</dd>
+
+    <dt><code>String getNickname()</code></dt>
+    <dd>Return the nickname of the corresponding <code>Accessory</code>.
+    Returns null if the <code>Accessory</code> currently has no nickname.</dd>
+
+    <dt><code>boolean setNickname(String nickname)</code></dt>
+    <dd>Attempt to set the nickname of the corresponding <code>Accessory</code> to nickname.
+    The return value indicates whether the nickname was successfully changed.</dd>
+
+    <dt><code>int getIndex()</code></dt>
+    <dd>Return the index of the corresponding <code>Accessory</code>.</dd>
+
+    <dt><code>String getFirmwareVersion()</code></dt>
+    <dd>Return the firmware version of the corespondining <code>Accessory</code>.</dd>
+
+    <dt><code>String getAvailableFirmwareVersion()</code></dt>
+    <dd>Return the available firmware version for the corresponding <code>Accessory</code>.</dd>
+
+    <dt><code>BatteryLevel getBatteryLevel()</code></dt>
+    <dd>Return the current <code>BatteryLevel</code> of the corresponding <code>Accessory</code>.</dd>
+
+    <dt><code>ChargingState getChargingState()</code></dt>
+    <dd>Return the current <code>ChargingState</code> of the corresponding <code>Accessory</code>.</dd>
+
+    <dt><code>ConnectionState getConnectionState()</code></dt>
+    <dd>Return the current <code>ConnectionState</code> of the corresponding <code>Accessory</code>.</dd>
+
+    <dt><code>ConnectionType getConnectionType()</code></dt>
+    <dd>Return the current <code>ConnectionType</code> of the corresponding <code>Accessory</code>.</dd>
+
+    <dt><code>FirmwareUpgradeStatus getFirmwareUpgradeStatus()</code></dt>
+    <dd>Return the current <code>FirmwareUpgradeStatus</code> of the corresponding <code>Accessory</code>.</dd>
+
+    <dt><code>int getInputDeviceId()</code></dt>
+    <dd>Return the current <code>InputDevice</code> ID of the corresponding <code>Accessory</code>.
+    This can be used with <code>InputDeviceManager</code> et al.</dd>
+
+    <dt><code>boolean identify()</code></dt>
+    <dd>Cause the corresponding <code>Accessory</code> to identify itself to the customer, if possible.</dd>
+
+    <dt><code>boolean unpair()</code></dt>
+    <dd>Unpair the corresponding <code>Accessory</code> from Android.
+    The <code>Accessory</code> will not be useable again until the <code>Accessory</code> is paired again.</dd>
+
+    <dt><code>int getFeature(String feature)</code></dt>
+    <dd>Return the current value of the specified feature for the corresponding <code>Accessory</code>.
+    -1 means the the operation failed or the feature is not supported for that <code>Accessory</code>.
+    For <code>boolean</code> features, 0 means False and 1 means True.
+    For <code>integer</code> features, the value is the value.</dd>
+
+    <dt><code>boolean setFeature(String feature, int setting)</code></dt>
+    <dd>Attempt to set the specified feature of the corresponding <code>Accessory</code> to setting.
+    The return value indicates whether the operation was successful.</dd>
+
+    <dt><code>public boolean vibrate(int leftAmount, int rightAmount)</code></dt>
+    <dt><code>public boolean vibrate(int leftAmount, int rightAmount, int milliseconds)</code></dt>
+    <dd>
+    Set the (haptic) vibration amounts of the left and right vibrators.
+    The vibration will timeout after milliseconds, if no future vibrate command overrides it.
+    The milliseconds value if specified will be clamped at about a second and a half.
+    If the milliseconds value is not specified it defaults to about a second.
+    To keep the vibration going for a longer time period, continuously send vibrations commands every half second or so.
+    This acts as a "dead man switch", so the vibration does not continue forever when an application crashes.
+    Valid values for leftAmount and rightAmount are the range from 0 (no vibration) to 65535 (maximum vibration).
+    Setting leftAmount and rightAmount both to zero explicitly turns off the vibration.
+    </dd>
+</dl>
+
+<h2><code>Accessory</code>: Starting NVIDIA Activities</h2>
+
+<dl>
+    <dt><code>boolean startFirmwareUpgrade()</code></dt>
+    <dd>Kicks off the NVIDIA Firmware Upgrade Activity for the corresponding <code>Accessory</code>.
+    The return value indicates whether the firmware upgrade was successfully kicked off.
+    The return value does not indicate whether the firmware updgrade was successful.
+    You have to monitor the firmware version and connection status of the accessory to determine whether the firmware upgrade was successful.</dd>
+</dl>
+
+</body>
+</html>
